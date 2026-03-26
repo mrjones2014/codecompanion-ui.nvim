@@ -3,7 +3,7 @@
 A custom UI extension for [CodeCompanion.nvim](https://github.com/olimorris/codecompanion.nvim)'s chat buffer
 that provides a separate input window with a custom `winbar` to show information about the session.
 
-![demo video](https://github.com/user-attachments/assets/be7e1b78-1810-44a5-bc8a-e54264221023)
+https://github.com/user-attachments/assets/be7e1b78-1810-44a5-bc8a-e54264221023
 
 ## Features
 
