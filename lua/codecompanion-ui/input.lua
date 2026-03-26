@@ -93,19 +93,21 @@ function M.setup_keymaps(session)
     return
   end
 
-  -- Apply codecompanion's chat keymaps to the input buffer, except 'send' and
-  -- 'codeblock' which we override with our own implementations.
+  -- Apply codecompanion's chat keymaps to the input buffer, except 'send',
+  -- 'codeblock', and 'stop' which we override with our own implementations.
+  -- 'stop' for whatever reason switches to the chat buffer, so we map it
+  -- ourselves to not do that.
   local cc_config = require('codecompanion.config')
   local cc_keymaps = vim.deepcopy(cc_config.interactions.chat.keymaps)
   local filtered_keymaps = {}
   for name, keymap in pairs(cc_keymaps) do
-    if name ~= 'send' and name ~= 'codeblock' and not vim.startswith(name, '_') then
+    if name ~= 'send' and name ~= 'codeblock' and name ~= 'stop' and not vim.startswith(name, '_') then
       filtered_keymaps[name] = keymap
     end
   end
   local callbacks = {}
   for name, callback in pairs(require('codecompanion.interactions.chat.keymaps')) do
-    if name ~= 'send' then
+    if name ~= 'send' and name ~= 'codeblock' and name ~= 'stop' then
       callbacks[name] = function(...)
         if type(callback.callback) ~= 'function' then
           vim.notify(string.format('Callback for keymap %s is not a function', name), vim.log.levels.ERROR)
@@ -173,6 +175,25 @@ function M.setup_keymaps(session)
           }
           vim.api.nvim_buf_set_lines(bufnr, line - 1, line, false, block)
           vim.api.nvim_win_set_cursor(0, { line + 1, vim.fn.indent(line) })
+        end, { buffer = input_buf, silent = true })
+      end
+    end
+  end
+
+  -- map the 'stop' keymap to stop the current response without switching to the chat buffer
+  local stop = vim.deepcopy(cc_config.interactions.chat.keymaps.stop)
+  if stop then
+    for mode, keys in pairs(stop.modes) do
+      if type(keys) ~= 'table' then
+        keys = { keys }
+      end
+      for _, key in ipairs(keys) do
+        vim.keymap.set(mode, key, function()
+          local chat_bufnr = session.chat_bufnr
+          if not vim.api.nvim_buf_is_valid(chat_bufnr) then
+            return
+          end
+          chat:stop()
         end, { buffer = input_buf, silent = true })
       end
     end
