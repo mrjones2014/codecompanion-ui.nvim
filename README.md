@@ -3,16 +3,17 @@
 A custom UI extension for [CodeCompanion.nvim](https://github.com/olimorris/codecompanion.nvim)'s chat buffer
 that provides a separate input window with a custom `winbar` to show information about the session.
 
-https://github.com/user-attachments/assets/be7e1b78-1810-44a5-bc8a-e54264221023
+![screenshot](https://github.com/user-attachments/assets/19b54a11-21a2-4245-a11c-879a67ab27d3)
 
 ## Features
 
 - Separate input buffer below the chat window with markdown treesitter highlighting
-- Rich winbar showing current mode, adapter, model, and a processing spinner
+- Customizable winbar with built-in components for model, provider, mode (for ACP adapter),
+  loading spinner, and plugin messages
 - Works with `codecompanion.nvim`'s auto-scroll functionality
 - CodeCompanion chat keymaps work from the input buffer (including tool approvals)
 - Completion support (adapters, models, slash commands) works in the input buffer
-- Configurable spinner, window sizes, mode icons, and display names
+- Configurable progress spinner, window sizes, mode icons, and display names
 
 ## Requirements
 
@@ -26,7 +27,15 @@ Using [lazy.nvim](https://github.com/folke/lazy.nvim), register the plugin as a 
 ```lua
 return {
   'olimorris/codecompanion.nvim',
-  dependencies = { 'mrjones2014/codecompanion-ui.nvim' },
+  dependencies = {
+    'mrjones2014/codecompanion-ui.nvim',
+    {
+      -- optional, but highly recommended
+      -- `render-markdown.nvim` will auto-attach to lazy.nvim `ft` filetypes
+      'MeanderingProgrammer/render-markdown.nvim',
+      ft = { 'codecompanion', 'codecompanion-ui' },
+    },
+  },
   opts = {
     extensions = {
       ui = {
@@ -38,27 +47,38 @@ return {
             height = 10,
             -- Placeholder shown when the input buffer is empty
             placeholder = 'Type your message...',
-            -- Message shown in winbar when user tries to submit while processing
-            processing_blocked_message = 'Please wait...',
+            -- set to `{}` to disable,
+            -- see `./lua/codecompanion-ui/components.lua`
+            -- for built in components and their options.
+            -- feel free to put up a PR with more components!
+            winbar = {
+              {
+                component = 'mode',
+                display_names = {},
+                icons = {
+                  default = '',
+                  acceptEdits = '󱐋',
+                  plan = '󰙬',
+                  dontAsk = '󱐋',
+                  bypassPermissions = '󰒃',
+                },
+              },
+              { component = 'adapter' },
+              { component = 'model' },
+              {
+                component = 'spinner',
+                interval_ms = 100,
+                frames = { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' },
+                text = 'Processing...',
+              },
+              '%=',
+              -- shows some status messages from the plugin briefly
+              { component = 'messages' },
+            },
           },
           chat = {
             -- Chat window width as a fraction of the screen (0.0-1.0)
             width = 0.35,
-          },
-          spinner = {
-            interval_ms = 100,
-            frames = { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' },
-            text = 'Processing...',
-          },
-          -- Rename modes for display. Keys are the original mode name, values are the
-          -- display name shown in the winbar.
-          mode_display_names = {},
-          mode_icons = {
-            default = '',
-            acceptEdits = '󱐋',
-            plan = '󰙬',
-            dontAsk = '󱐋',
-            bypassPermissions = '󰒃',
           },
         },
       },

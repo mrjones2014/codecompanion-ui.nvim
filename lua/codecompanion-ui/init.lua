@@ -26,6 +26,7 @@ local function setup_highlights()
   vim.api.nvim_set_hl(0, 'CcuiAdapterSep', { fg = surface, bg = statusline_bg })
   vim.api.nvim_set_hl(0, 'CcuiModel', { fg = green, bg = statusline_bg })
   vim.api.nvim_set_hl(0, 'CcuiSpinner', { fg = dimmed, bg = statusline_bg, bold = true })
+  vim.api.nvim_set_hl(0, 'CcuiCustom', { fg = dimmed, bg = statusline_bg })
   vim.api.nvim_set_hl(0, 'CcuiPlaceholder', { fg = dimmed, italic = true })
   vim.api.nvim_set_hl(0, 'CcuiPlaceholderKey', { fg = accent, bold = true })
 end

@@ -11,7 +11,8 @@ local M = {}
 ---@field spinner_idx number
 ---@field spinner_timer uv.uv_timer_t|nil
 ---@field approval_keymaps string[]|nil
----@field processing_blocked boolean|nil
+---@field message { text: string, hl: string }|nil
+---@field _message_timer uv.uv_timer_t|nil
 
 ---@type table<number, CcuiSession>
 M.sessions = {}
@@ -76,13 +77,43 @@ function M.active()
   return nil
 end
 
+---@param session CcuiSession
+---@param text string
+---@param timeout? number Timeout in ms (default 1500). Pass 0 for no auto-clear.
+function M.message(session, text, timeout)
+  M.clear_message(session)
+  session.message = { text = text, hl = 'WarningMsg' }
+  local Events = require('codecompanion-ui.events')
+  Events.redraw_winbar(session)
+  timeout = timeout or 1500
+  if timeout > 0 then
+    session._message_timer = vim.defer_fn(function()
+      if session.input_bufnr and vim.api.nvim_buf_is_valid(session.input_bufnr) then
+        M.clear_message(session)
+        Events.redraw_winbar(session)
+      end
+    end, timeout)
+  end
+end
+
+---@param session CcuiSession
+function M.clear_message(session)
+  session.message = nil
+  if session._message_timer then
+    session._message_timer = nil
+  end
+end
+
 ---@param id number
 function M.remove(id)
   local session = M.sessions[id]
-  if session and session.spinner_timer then
-    session.spinner_timer:stop()
-    session.spinner_timer:close()
-    session.spinner_timer = nil
+  if session then
+    if session.spinner_timer then
+      session.spinner_timer:stop()
+      session.spinner_timer:close()
+      session.spinner_timer = nil
+    end
+    M.clear_message(session)
   end
   M.sessions[id] = nil
   if M.active_session_id == id then
