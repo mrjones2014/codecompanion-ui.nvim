@@ -12,7 +12,7 @@ local M = {}
 ---@alias CcuiConfig.WinbarItem string|CcuiConfig.WinbarComponent
 
 ---@class CcuiConfig.WinbarComponent
----@field component? string|fun(chat: CodeCompanion.Chat): string|nil
+---@field component? string|fun(chat: CodeCompanion.Chat): CcuiComponentReturn
 ---@field hl? string
 ---@field fg? string
 ---@field bg? string
@@ -20,6 +20,7 @@ local M = {}
 
 ---@class CcuiConfig.Chat
 ---@field width number
+---@field winbar CcuiConfig.WinbarItem[]
 
 local defaults = {
   input = {
@@ -53,6 +54,13 @@ local defaults = {
   chat = {
     -- Chat window width as a fraction of the screen (0.0–1.0)
     width = 0.35,
+    winbar = {
+      {
+        component = 'chat_title',
+        icon = '󰭹',
+        default = '[No Title]',
+      },
+    },
   },
 }
 
@@ -76,13 +84,20 @@ end
 ---@param opts? CcuiConfig
 function M.setup(opts)
   -- Winbar is a list — replace wholesale rather than deep-merging by index
-  local user_winbar = opts and opts.input and opts.input.winbar
+  local user_input_winbar = opts and opts.input and opts.input.winbar
+  local user_chat_winbar = opts and opts.chat and opts.chat.winbar
   if opts and opts.input then
     opts.input.winbar = nil
   end
+  if opts and opts.chat then
+    opts.chat.winbar = nil
+  end
   M.config = vim.tbl_deep_extend('force', vim.deepcopy(defaults), opts or {})
-  if user_winbar then
-    M.config.input.winbar = user_winbar
+  if user_input_winbar then
+    M.config.input.winbar = user_input_winbar
+  end
+  if user_chat_winbar then
+    M.config.chat.winbar = user_chat_winbar
   end
 
   -- Validate critical config values

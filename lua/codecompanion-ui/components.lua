@@ -1,13 +1,22 @@
 local M = {}
 
+---@class CcuiComponentResult
+---@field text string
+---@field hl? string Highlight group name
+---@field fg? string Foreground color (hex string)
+---@field bg? string Background color (hex string)
+
+---@alias CcuiComponentReturn CcuiComponentResult|string
+
 ---@class CcuiComponentOpts.Mode
 ---@field display_names? table<string, string> Rename modes for display
 ---@field icons? table<string, string> Icons per mode id
 
+---For ACP adapters, show the agent mode
 ---@param chat CodeCompanion.Chat
 ---@param _ CcuiSession
 ---@param opts CcuiComponentOpts.Mode
----@return string
+---@return CcuiComponentReturn
 function M.mode(chat, _, opts)
   local mode_name = 'Plan Mode'
   local mode_id = 'plan'
@@ -31,46 +40,54 @@ function M.mode(chat, _, opts)
   local icons = opts.icons or {}
   local icon = icons[mode_id] or ''
 
-  return icon .. ' ' .. mode_name
+  return { text = icon .. ' ' .. mode_name, hl = 'CcuiMode' }
 end
 
+---Show the adapter formatted name
 ---@param chat CodeCompanion.Chat
----@param _ CcuiSession
----@param _ CcuiConfig.WinbarComponent
----@return string
-function M.adapter(chat, _, _)
+---@return CcuiComponentReturn
+function M.adapter(chat)
   if chat.adapter then
-    return chat.adapter.formatted_name or chat.adapter.name or ''
+    local name = chat.adapter.formatted_name or chat.adapter.name or ''
+    if name ~= '' then
+      return { text = name, hl = 'CcuiAdapter' }
+    end
   end
   return ''
 end
 
+---Show the model formatted name
 ---@param chat CodeCompanion.Chat
----@param _ CcuiSession
----@param _ CcuiConfig.WinbarComponent
----@return string
-function M.model(chat, _, _)
+---@return CcuiComponentReturn
+function M.model(chat, _)
+  local name = ''
+
   -- ACP adapter
   if chat.acp_connection and chat.acp_connection._models then
     local models = chat.acp_connection._models
     local current_id = models and models.currentModelId or ''
     for _, model in ipairs(models and models.availableModels or {}) do
       if model.modelId == current_id then
-        return model.name
+        name = model.name
+        break
       end
     end
   end
 
   -- HTTP adapter
-  if chat.adapter and chat.adapter.model then
-    local name = chat.adapter.model.name
+  if name == '' and chat.adapter and chat.adapter.model then
+    local raw = chat.adapter.model.name
     local choices = chat.adapter.schema and chat.adapter.schema.model and chat.adapter.schema.model.choices
-    if choices and choices[name] and choices[name].formatted_name then
-      return choices[name].formatted_name
+    if choices and choices[raw] and choices[raw].formatted_name then
+      name = choices[raw].formatted_name
+    else
+      name = raw or ''
     end
-    return name or ''
   end
 
+  if name ~= '' then
+    return { text = '󰧑 ' .. name, hl = 'CcuiModel' }
+  end
   return ''
 end
 
@@ -79,10 +96,11 @@ end
 ---@field text? string Text shown next to the spinner
 ---@field interval_ms? number Timer interval in ms (used by events.lua)
 
+---Show a loading spinner for the current session
 ---@param _ CodeCompanion.Chat
 ---@param session CcuiSession
 ---@param opts CcuiComponentOpts.Spinner
----@return string
+---@return CcuiComponentReturn
 function M.spinner(_, session, opts)
   if not session.is_processing then
     return ''
@@ -92,18 +110,39 @@ function M.spinner(_, session, opts)
   local text = opts.text or 'Processing...'
   local frame = frames[(session.spinner_idx % #frames) + 1]
 
-  return frame .. ' ' .. text
+  return { text = frame .. ' ' .. text, hl = 'CcuiSpinner' }
 end
 
+---Show informational messages from the plugin
 ---@param _ CodeCompanion.Chat
 ---@param session CcuiSession
----@param _ CcuiConfig.WinbarComponent
----@return string
-function M.messages(_, session, _)
+---@return CcuiComponentReturn
+function M.messages(_, session)
   if not session.message then
     return ''
   end
-  return session.message.text
+  return { text = session.message.text, hl = session.message.hl or 'WarningMsg' }
+end
+
+---@class CcuiComponentOpts.ChatTitle
+---@field icon? string Icon shown before the chat name; default: '󰭹'
+---@field default? string The default text to show when no title; default: `[No Title]`
+
+---Show the chat title
+---@param chat CodeCompanion.Chat
+---@param _ CcuiSession
+---@param opts CcuiComponentOpts.ChatTitle
+---@return CcuiComponentReturn
+function M.chat_title(chat, _, opts)
+  if not chat then
+    return { text = '', hl = 'CcuiTitle' }
+  end
+
+  opts = opts or {}
+  local icon = opts.icon or '󰭹'
+  local title = chat.title or '[No Title]'
+  -- %< truncate from end
+  return { text = string.format('%s %s%%<', icon, title), hl = 'CcuiTitle' }
 end
 
 return M

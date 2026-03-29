@@ -46,40 +46,17 @@ local function apply_style(text, item)
   return ''
 end
 
--- Default styling for built-in components. Applied when the user
--- does not provide hl/fg/bg overrides on the item.
----@type table<string, fun(text: string, session: CcuiSession): string>
-local default_style = {
-  mode = function(text)
-    return string.format('%%#CcuiModeSep#%%#CcuiMode# %s %%#CcuiModeSep#', text)
-  end,
-  adapter = function(text)
-    return string.format('%%#CcuiAdapter#  %s %%#CcuiAdapterSep#', text)
-  end,
-  model = function(text)
-    return string.format('%%#CcuiModel# 󰧑 %s ', text)
-  end,
-  spinner = function(text)
-    return string.format('%%#CcuiSpinner# %s ', text)
-  end,
-  messages = function(text, session)
-    local hl = (session.message and session.message.hl) or 'WarningMsg'
-    return string.format('%%#%s# %s ', hl, text)
-  end,
-}
-
+---@param winbar_items CcuiConfig.WinbarItem[]
 ---@return string
-function M.eval_input()
+local function eval(winbar_items)
   local State = require('codecompanion-ui.state')
-  local config = require('codecompanion-ui.config')
 
   local session = State.active()
   if not session then
     return ''
   end
 
-  local winbar = config.input.winbar
-  if not winbar or #winbar == 0 then
+  if not winbar_items or #winbar_items == 0 then
     return ''
   end
 
@@ -95,11 +72,11 @@ function M.eval_input()
 
   local parts = {}
 
-  for _, item in ipairs(winbar) do
+  for _, item in ipairs(winbar_items) do
     if type(item) == 'string' then
       table.insert(parts, item)
     elseif type(item) == 'table' and item.component then
-      local has_style = item.hl or item.fg or item.bg
+      local user_style = item.hl or item.fg or item.bg
       local result
 
       if type(item.component) == 'string' then
@@ -108,27 +85,47 @@ function M.eval_input()
           result = comp(chat, session, item)
         end
       elseif type(item.component) == 'function' then
-        local fn_ok, fn_result = pcall(item.component, chat)
+        local fn_ok, fn_result = pcall(item.component --[[@as fun(CodeCompanion.Chat): string]], chat)
         if fn_ok then
           result = fn_result
         end
       end
 
       if result and result ~= '' then
-        if has_style then
-          table.insert(parts, apply_style(result, item))
-        elseif type(item.component) == 'string' and default_style[item.component] then
-          table.insert(parts, default_style[item.component](result, session))
-        elseif type(item.component) == 'function' then
-          table.insert(parts, apply_style(result, { hl = 'CcuiCustom' }))
+        local text, style
+        if type(result) == 'table' then
+          text = result.text
+          -- User config overrides component defaults
+          style = {
+            hl = user_style and item.hl or result.hl,
+            fg = user_style and item.fg or result.fg,
+            bg = user_style and item.bg or result.bg,
+          }
         else
-          table.insert(parts, result)
+          text = result
+          style = user_style and item or { hl = 'CcuiCustom' }
+        end
+
+        if text and text ~= '' then
+          table.insert(parts, apply_style(text, style))
         end
       end
     end
   end
 
   return table.concat(parts)
+end
+
+---@return string
+function M.eval_input()
+  local config = require('codecompanion-ui.config')
+  return eval(config.input.winbar)
+end
+
+---@return string
+function M.eval_chat()
+  local config = require('codecompanion-ui.config')
+  return eval(config.chat.winbar)
 end
 
 ---@param winid number
@@ -141,6 +138,18 @@ function M.set_input_winbar(winid)
     return
   end
   vim.wo[winid].winbar = "%{%v:lua.require('codecompanion-ui.winbar').eval_input()%}"
+end
+
+---@param winid number
+function M.set_chat_winbar(winid)
+  local config = require('codecompanion-ui.config')
+  if not vim.api.nvim_win_is_valid(winid) then
+    return
+  end
+  if not config.chat.winbar or #config.chat.winbar == 0 then
+    return
+  end
+  vim.wo[winid].winbar = "%{%v:lua.require('codecompanion-ui.winbar').eval_chat()%}"
 end
 
 return M

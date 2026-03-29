@@ -76,6 +76,7 @@ function M.attach(chat_bufnr, chat_id)
   session.input_winid = input_winid
 
   setup_chat_win_opts(chat_winid)
+  Winbar.set_chat_winbar(chat_winid)
   setup_input_win_opts(session.input_winid)
 
   vim.keymap.set('n', '<Tab>', function()
