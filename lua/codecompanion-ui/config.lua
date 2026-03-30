@@ -3,57 +3,102 @@ local M = {}
 ---@class CcuiConfig
 ---@field input CcuiConfig.Input
 ---@field chat CcuiConfig.Chat
----@field spinner CcuiConfig.Spinner
----@field mode_display_names table<string, string>
----@field mode_icons table<string, string>
 
 ---@class CcuiConfig.Input
 ---@field height number
 ---@field placeholder string
----@field processing_blocked_message string
+---@field winbar CcuiConfig.WinbarItem[]|{ enabled: boolean }
+
+---@alias CcuiConfig.WinbarItem string|CcuiConfig.WinbarComponent
+
+---@class CcuiConfig.WinbarComponent
+---@field component? string|fun(chat: CodeCompanion.Chat): CcuiComponentReturn
+---@field hl? string
+---@field fg? string
+---@field bg? string
+---@field [string] any Component-specific options (e.g. icons, frames)
 
 ---@class CcuiConfig.Chat
 ---@field width number
-
----@class CcuiConfig.Spinner
----@field interval_ms number
----@field frames string[]
+---@field winbar CcuiConfig.WinbarItem[]
 
 local defaults = {
   input = {
     height = 10,
     -- Placeholder shown when the input buffer is empty
     placeholder = 'Type your message...',
-    -- Message shown in winbar when user tries to submit while processing
-    processing_blocked_message = 'Please wait...',
+    winbar = {
+      {
+        component = 'mode',
+        display_names = {},
+        icons = {
+          default = '',
+          acceptEdits = '󱐋',
+          plan = '󰙬',
+          dontAsk = '󱐋',
+          bypassPermissions = '󰒃',
+        },
+      },
+      { component = 'adapter' },
+      { component = 'model' },
+      {
+        component = 'spinner',
+        interval_ms = 100,
+        frames = { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' },
+        text = 'Processing...',
+      },
+      '%=',
+      { component = 'messages' },
+    },
   },
   chat = {
     -- Chat window width as a fraction of the screen (0.0–1.0)
     width = 0.35,
-  },
-  spinner = {
-    interval_ms = 100,
-    frames = { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' },
-    text = 'Processing...',
-  },
-  -- Rename modes for display. Keys are the original mode name, values are the
-  -- display name shown in the winbar.
-  mode_display_names = {},
-  mode_icons = {
-    default = '',
-    acceptEdits = '󱐋',
-    plan = '󰙬',
-    dontAsk = '󱐋',
-    bypassPermissions = '󰒃',
+    winbar = {
+      {
+        component = 'chat_title',
+        icon = '󰭹',
+        default = '[No Title]',
+      },
+    },
   },
 }
 
 ---@type CcuiConfig
 M.config = vim.deepcopy(defaults)
 
+---@param name string
+---@return CcuiConfig.WinbarComponent?
+function M.get_component(name)
+  if not M.config.input or not M.config.input.winbar then
+    return nil
+  end
+  for _, item in ipairs(M.config.input.winbar) do
+    if type(item) == 'table' and item.component == name then
+      return item
+    end
+  end
+  return nil
+end
+
 ---@param opts? CcuiConfig
 function M.setup(opts)
+  -- Winbar is a list — replace wholesale rather than deep-merging by index
+  local user_input_winbar = opts and opts.input and opts.input.winbar
+  local user_chat_winbar = opts and opts.chat and opts.chat.winbar
+  if opts and opts.input then
+    opts.input.winbar = nil
+  end
+  if opts and opts.chat then
+    opts.chat.winbar = nil
+  end
   M.config = vim.tbl_deep_extend('force', vim.deepcopy(defaults), opts or {})
+  if user_input_winbar then
+    M.config.input.winbar = user_input_winbar
+  end
+  if user_chat_winbar then
+    M.config.chat.winbar = user_chat_winbar
+  end
 
   -- Validate critical config values
   if M.config.input.height <= 0 then
@@ -66,22 +111,27 @@ function M.setup(opts)
     M.config.chat.width = defaults.chat.width
   end
 
-  if M.config.spinner.interval_ms <= 0 then
-    vim.notify('codecompanion-ui: spinner.interval_ms must be positive, using default', vim.log.levels.WARN)
-    M.config.spinner.interval_ms = defaults.spinner.interval_ms
-  end
-
-  if not M.config.spinner.frames or #M.config.spinner.frames == 0 then
-    vim.notify('codecompanion-ui: spinner.frames must be non-empty, using default', vim.log.levels.WARN)
-    M.config.spinner.frames = defaults.spinner.frames
+  local spinner = M.get_component('spinner')
+  if spinner then
+    if spinner.interval_ms and spinner.interval_ms <= 0 then
+      vim.notify('codecompanion-ui: spinner.interval_ms must be positive, using default', vim.log.levels.WARN)
+      spinner.interval_ms = 100
+    end
+    if not spinner.frames or #spinner.frames == 0 then
+      vim.notify('codecompanion-ui: spinner.frames must be non-empty, using default', vim.log.levels.WARN)
+      spinner.frames = defaults.input.winbar[4].frames
+    end
   end
 end
 
----@type CcuiConfig|{setup: fun(opts?: CcuiConfig), config: CcuiConfig}
+---@type CcuiConfig|{setup: fun(opts?: CcuiConfig), config: CcuiConfig, get_component: fun(name: string): CcuiConfig.WinbarComponent?}
 return setmetatable(M, {
   __index = function(_, key)
     if key == 'setup' then
       return M.setup
+    end
+    if key == 'get_component' then
+      return M.get_component
     end
     return rawget(M.config, key)
   end,

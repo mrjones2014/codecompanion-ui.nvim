@@ -20,12 +20,12 @@ local function setup_highlights()
 
   -- These highlights are derived from the current colorscheme, so they must be
   -- recomputed on ColorScheme changes rather than using default=true.
-  vim.api.nvim_set_hl(0, 'CcuiModeSep', { fg = accent, bg = statusline_bg })
   vim.api.nvim_set_hl(0, 'CcuiMode', { fg = statusline_bg, bg = accent, bold = true })
+  vim.api.nvim_set_hl(0, 'CcuiTitle', { fg = statusline_bg, bg = accent, bold = true })
   vim.api.nvim_set_hl(0, 'CcuiAdapter', { fg = cyan, bg = surface })
-  vim.api.nvim_set_hl(0, 'CcuiAdapterSep', { fg = surface, bg = statusline_bg })
   vim.api.nvim_set_hl(0, 'CcuiModel', { fg = green, bg = statusline_bg })
   vim.api.nvim_set_hl(0, 'CcuiSpinner', { fg = dimmed, bg = statusline_bg, bold = true })
+  vim.api.nvim_set_hl(0, 'CcuiCustom', { fg = dimmed, bg = statusline_bg })
   vim.api.nvim_set_hl(0, 'CcuiPlaceholder', { fg = dimmed, italic = true })
   vim.api.nvim_set_hl(0, 'CcuiPlaceholderKey', { fg = accent, bold = true })
 end

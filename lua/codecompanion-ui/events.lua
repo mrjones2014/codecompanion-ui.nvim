@@ -4,6 +4,55 @@ local M = {}
 
 local AUGROUP = 'codecompanion-ui'
 
+---@param session CcuiSession
+local function start_spinner(session)
+  session.is_processing = true
+  session.spinner_idx = 1
+
+  if session.spinner_timer then
+    return
+  end
+
+  local config = require('codecompanion-ui.config')
+  local spinner = config.get_component('spinner') or {}
+
+  local timer = vim.uv.new_timer()
+  if not timer then
+    vim.notify('codecompanion-ui: failed to create spinner timer', vim.log.levels.WARN)
+    return
+  end
+
+  local interval_ms = spinner.interval_ms or 100
+  local frames = spinner.frames or { '⠋', '⠙', '⠹', '⠸', '⠼', '⠴', '⠦', '⠧', '⠇', '⠏' }
+
+  session.spinner_timer = timer
+  session.spinner_timer:start(
+    0,
+    interval_ms,
+    vim.schedule_wrap(function()
+      if not session.is_processing then
+        return
+      end
+      session.spinner_idx = (session.spinner_idx % #frames) + 1
+      M.redraw_winbar(session)
+    end)
+  )
+end
+
+---@param session CcuiSession
+local function stop_spinner(session)
+  session.is_processing = false
+  session.spinner_idx = 1
+
+  if session.spinner_timer then
+    session.spinner_timer:stop()
+    session.spinner_timer:close()
+    session.spinner_timer = nil
+  end
+
+  M.redraw_winbar(session)
+end
+
 function M.setup()
   local group = vim.api.nvim_create_augroup(AUGROUP, { clear = true })
 
@@ -60,7 +109,7 @@ function M.setup()
       if not session then
         return
       end
-      M.start_spinner(session)
+      start_spinner(session)
     end,
   })
 
@@ -73,7 +122,7 @@ function M.setup()
       if not session then
         return
       end
-      M.stop_spinner(session)
+      stop_spinner(session)
     end,
   })
 
@@ -86,7 +135,7 @@ function M.setup()
       if not session then
         return
       end
-      M.stop_spinner(session)
+      stop_spinner(session)
     end,
   })
 end
@@ -98,52 +147,6 @@ function M.redraw_winbar(session)
       vim.cmd('redrawstatus')
     end)
   end
-end
-
----@param session CcuiSession
-function M.start_spinner(session)
-  session.is_processing = true
-  session.spinner_idx = 1
-
-  if session.spinner_timer then
-    return
-  end
-
-  local config = require('codecompanion-ui.config')
-
-  local timer = vim.uv.new_timer()
-  if not timer then
-    vim.notify('codecompanion-ui: failed to create spinner timer', vim.log.levels.WARN)
-    return
-  end
-
-  session.spinner_timer = timer
-  session.spinner_timer:start(
-    0,
-    config.spinner.interval_ms,
-    vim.schedule_wrap(function()
-      if not session.is_processing then
-        return
-      end
-      local frames = config.spinner.frames
-      session.spinner_idx = (session.spinner_idx % #frames) + 1
-      M.redraw_winbar(session)
-    end)
-  )
-end
-
----@param session CcuiSession
-function M.stop_spinner(session)
-  session.is_processing = false
-  session.spinner_idx = 1
-
-  if session.spinner_timer then
-    session.spinner_timer:stop()
-    session.spinner_timer:close()
-    session.spinner_timer = nil
-  end
-
-  M.redraw_winbar(session)
 end
 
 return M

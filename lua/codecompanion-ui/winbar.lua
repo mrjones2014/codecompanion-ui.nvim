@@ -1,12 +1,62 @@
 local M = {}
 
+local components = require('codecompanion-ui.components')
+
+local hl_cache = {}
+local hl_counter = 0
+
+---@param fg? string
+---@param bg? string
 ---@return string
-function M.eval_input()
+local function get_dynamic_hl(fg, bg)
+  local key = (fg or '') .. ':' .. (bg or '')
+  if hl_cache[key] then
+    return hl_cache[key]
+  end
+  hl_counter = hl_counter + 1
+  local name = 'CcuiDyn_' .. tostring(hl_counter)
+  local def = {}
+  if fg then
+    def.fg = fg
+  end
+  if bg then
+    def.bg = bg
+  end
+  vim.api.nvim_set_hl(0, name, def)
+  hl_cache[key] = name
+  return name
+end
+
+---@param text string
+---@param hl string
+---@return string
+local function wrap_hl(text, hl)
+  return string.format('%%#%s# %s ', hl, text)
+end
+
+---@param text string
+---@param item CcuiConfig.WinbarComponent
+---@return string
+local function apply_style(text, item)
+  if item.hl then
+    return wrap_hl(text, item.hl)
+  elseif item.fg or item.bg then
+    return wrap_hl(text, get_dynamic_hl(item.fg, item.bg))
+  end
+  return ''
+end
+
+---@param winbar_items CcuiConfig.WinbarItem[]
+---@return string
+local function eval(winbar_items)
   local State = require('codecompanion-ui.state')
-  local config = require('codecompanion-ui.config')
 
   local session = State.active()
   if not session then
+    return ''
+  end
+
+  if not winbar_items or #winbar_items == 0 then
     return ''
   end
 
@@ -22,75 +72,84 @@ function M.eval_input()
 
   local parts = {}
 
-  -- Mode
-  local mode_name = 'Plan Mode'
-  local mode_id = 'plan'
-  if chat.acp_connection and chat.acp_connection._modes then
-    local modes = chat.acp_connection._modes
-    local current_id = modes and modes.currentModeId or ''
-    local mode_info = vim.iter(modes and modes.availableModes or {}):find(function(m)
-      return m.id == current_id
-    end)
-    if mode_info then
-      mode_name = mode_info.name
-      mode_id = mode_info.id
-    end
-  end
+  for _, item in ipairs(winbar_items) do
+    if type(item) == 'string' then
+      table.insert(parts, item)
+    elseif type(item) == 'table' and item.component then
+      local user_style = item.hl or item.fg or item.bg
+      local result
 
-  local display_name = config.mode_display_names[mode_name]
-  if display_name then
-    mode_name = display_name
-  end
+      if type(item.component) == 'string' then
+        local comp = components[item.component]
+        if comp then
+          result = comp(chat, session, item)
+        end
+      elseif type(item.component) == 'function' then
+        local fn_ok, fn_result = pcall(item.component --[[@as fun(CodeCompanion.Chat): string]], chat)
+        if fn_ok then
+          result = fn_result
+        end
+      end
 
-  local icon = config.mode_icons[mode_id] or ''
-  table.insert(parts, string.format('%%#CcuiModeSep#%%#CcuiMode# %s %s %%#CcuiModeSep#', icon, mode_name))
+      if result and result ~= '' then
+        local text, style
+        if type(result) == 'table' then
+          text = result.text
+          -- User config overrides component defaults
+          style = {
+            hl = user_style and item.hl or result.hl,
+            fg = user_style and item.fg or result.fg,
+            bg = user_style and item.bg or result.bg,
+          }
+        else
+          text = result
+          style = user_style and item or { hl = 'CcuiCustom' }
+        end
 
-  -- Adapter
-  local adapter_name = ''
-  if chat.adapter then
-    adapter_name = chat.adapter.formatted_name or chat.adapter.name or ''
-  end
-
-  if adapter_name ~= '' then
-    table.insert(parts, string.format('%%#CcuiAdapter#  %s %%#CcuiAdapterSep#', adapter_name))
-  end
-
-  -- Model
-  local model_name = nil
-  if chat.acp_connection and chat.acp_connection._models then
-    local models = chat.acp_connection._models
-    local current_id = models and models.currentModelId or ''
-    for _, model in ipairs(models and models.availableModels or {}) do
-      if model.modelId == current_id then
-        model_name = model.name
-        break
+        if text and text ~= '' then
+          table.insert(parts, apply_style(text, style))
+        end
       end
     end
-  end
-
-  if model_name then
-    table.insert(parts, string.format('%%#CcuiModel# 󰧑 %s ', model_name))
-  end
-
-  if session.is_processing then
-    local frames = config.spinner.frames
-    local frame = frames[session.spinner_idx] or frames[1]
-    table.insert(parts, string.format('%%#CcuiSpinner# %s %s ', frame, config.spinner.text))
-  end
-
-  -- Show processing blocked message right-aligned
-  if session.processing_blocked then
-    table.insert(parts, string.format('%%=%%#WarningMsg# %s ', config.input.processing_blocked_message))
   end
 
   return table.concat(parts)
 end
 
+---@return string
+function M.eval_input()
+  local config = require('codecompanion-ui.config')
+  return eval(config.input.winbar)
+end
+
+---@return string
+function M.eval_chat()
+  local config = require('codecompanion-ui.config')
+  return eval(config.chat.winbar)
+end
+
 ---@param winid number
 function M.set_input_winbar(winid)
-  if vim.api.nvim_win_is_valid(winid) then
-    vim.wo[winid].winbar = "%{%v:lua.require('codecompanion-ui.winbar').eval_input()%}"
+  local config = require('codecompanion-ui.config')
+  if not vim.api.nvim_win_is_valid(winid) then
+    return
   end
+  if not config.input.winbar or #config.input.winbar == 0 then
+    return
+  end
+  vim.wo[winid].winbar = "%{%v:lua.require('codecompanion-ui.winbar').eval_input()%}"
+end
+
+---@param winid number
+function M.set_chat_winbar(winid)
+  local config = require('codecompanion-ui.config')
+  if not vim.api.nvim_win_is_valid(winid) then
+    return
+  end
+  if not config.chat.winbar or #config.chat.winbar == 0 then
+    return
+  end
+  vim.wo[winid].winbar = "%{%v:lua.require('codecompanion-ui.winbar').eval_chat()%}"
 end
 
 return M
