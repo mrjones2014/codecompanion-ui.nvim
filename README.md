@@ -81,8 +81,16 @@ return {
             -- Chat window width as a fraction of the screen (0.0-1.0)
             width = 0.35,
             -- Winbar for the chat (output) window.
-            -- Same format as input.winbar. Default: {} (disabled)
-            winbar = {},
+            -- Same format as input.winbar.
+            winbar = {
+              winbar = {
+                {
+                  component = 'chat_title',
+                  icon = '󰭹',
+                  default = '[No Title]',
+                },
+              },
+            },
           },
         },
       },
