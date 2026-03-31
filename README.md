@@ -56,11 +56,11 @@ return {
                 component = 'mode',
                 display_names = {},
                 icons = {
-                  default = '',
+                  default = '󰺴',
                   acceptEdits = '󱐋',
                   plan = '󰙬',
-                  dontAsk = '󱐋',
-                  bypassPermissions = '󰒃',
+                  dontAsk = '󰝟',
+                  bypassPermissions = '',
                 },
               },
               { component = 'adapter' },
@@ -116,10 +116,10 @@ Components define their own default highlight groups. Override per-component wit
 
 ```lua
 -- Use a named highlight group
-{ component = 'model', hl = 'Special' }
+local model_with_custom_hl = { component = 'model', hl = 'Special' }
 
 -- Use custom colors
-{ component = 'adapter', fg = '#61afef', bg = '#282c34' }
+local adapter_with_custom_colors = { component = 'adapter', fg = '#61afef', bg = '#282c34' }
 ```
 
 ### Custom components
@@ -127,7 +127,7 @@ Components define their own default highlight groups. Override per-component wit
 Use a function as the `component` value. Return a `CcuiComponentResult` table or a plain string:
 
 ```lua
-{
+local custom_component = {
   component = function(chat)
     ---@type CcuiComponentResult
     return { text = 'my text', hl = 'Title' }
@@ -138,13 +138,15 @@ Use a function as the `component` value. Return a `CcuiComponentResult` table or
 ### Example: chat window winbar
 
 ```lua
-chat = {
-  winbar = {
-    { component = 'chat_title' },
-    '%=',
-    { component = 'spinner' },
+return {
+  chat = {
+    winbar = {
+      { component = 'chat_title' },
+      '%=',
+      { component = 'spinner' },
+    },
   },
-},
+}
 ```
 
 ## License
