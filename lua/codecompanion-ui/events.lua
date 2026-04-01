@@ -81,7 +81,6 @@ function M.setup()
       if not data.bufnr or not data.id then
         return
       end
-      try_render_markdown(data.bufnr)
       require('codecompanion-ui.layout').attach(data.bufnr, data.id)
       -- Backfill adapter cache for the newly created input buffer.
       -- ChatAdapter fires before ChatOpened, so the input buffer didn't
