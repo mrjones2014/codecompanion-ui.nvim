@@ -4,23 +4,6 @@ local M = {}
 
 local AUGROUP = 'codecompanion-ui'
 
----Force re-render markdown. `render-markdown.nvim`,
----for example, will not fully render unless its the current window.
----Rendering via the API forces it to re-render.
----@param session CcuiSession
-local function try_render_markdown(session)
-  local render_markdown_ok, md = pcall(require, 'render-markdown')
-  if render_markdown_ok then
-    local manager = require('render-markdown.core.manager')
-    if manager.attached(session.chat_bufnr) then
-      md.render({ buf = session.chat_bufnr, win = session.chat_winid })
-    end
-    if manager.attached(session.input_bufnr) then
-      md.render({ buf = session.input_bufnr, win = session.input_winid })
-    end
-  end
-end
-
 ---@param session CcuiSession
 local function start_spinner(session)
   session.is_processing = true
@@ -139,7 +122,6 @@ function M.setup()
       if not session then
         return
       end
-      try_render_markdown(session)
       stop_spinner(session)
     end,
   })
@@ -153,7 +135,6 @@ function M.setup()
       if not session then
         return
       end
-      try_render_markdown(session)
       stop_spinner(session)
     end,
   })

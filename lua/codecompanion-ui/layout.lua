@@ -98,23 +98,27 @@ function M.attach(chat_bufnr, chat_id)
 
   vim.api.nvim_buf_attach(chat_bufnr, false, {
     on_lines = function()
-      if not session.chat_at_bottom then
-        return
-      end
       if not vim.api.nvim_win_is_valid(chat_winid) then
         return true -- detach
       end
 
       vim.schedule(function()
-        if not session.is_processing then
-          return
-        end
-
         if not vim.api.nvim_win_is_valid(chat_winid) then
           return
         end
 
-        if not session.chat_at_bottom then
+        local render_markdown_ok, md = pcall(require, 'render-markdown')
+        if render_markdown_ok then
+          local manager = require('render-markdown.core.manager')
+          if manager.attached(chat_bufnr) then
+            md.render({ buf = chat_bufnr, win = chat_winid })
+          end
+          if session.input_bufnr and manager.attached(session.input_bufnr) and vim.api.nvim_win_is_valid(session.input_winid) then
+            md.render({ buf = session.input_bufnr, win = session.input_winid })
+          end
+        end
+
+        if not session.is_processing or not session.chat_at_bottom then
           return
         end
 
