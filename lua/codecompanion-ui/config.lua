@@ -36,6 +36,7 @@ local defaults = {
         icons = {
           default = '󰺴',
           acceptEdits = '󱐋',
+          agent = '󰵰',
           auto = '󱐋',
           plan = '󰙬',
           ['read-only'] = '󰙬',
