@@ -59,6 +59,11 @@ function M.setup()
   vim.api.nvim_create_autocmd('User', {
     group = group,
     pattern = 'CodeCompanionChatOpened',
+    -- Nested so derived events (BufEnter/BufWinEnter for the windows and
+    -- buffers created by layout.attach) still fire. Without this, plugins
+    -- that discover buffers via BufEnter (e.g. which-key) never see the
+    -- composer input until some other event happens to touch it.
+    nested = true,
     callback = function(args)
       local data = args.data or {}
       if not data.bufnr or not data.id then
