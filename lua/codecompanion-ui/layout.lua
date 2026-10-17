@@ -32,7 +32,6 @@ end
 ---@param winid number
 local function setup_chat_win_opts(winid)
   local config = require('codecompanion-ui.config')
-  vim.wo[winid].winfixbuf = true
   vim.wo[winid].signcolumn = 'no'
   vim.wo[winid].number = false
   vim.wo[winid].winfixheight = true
